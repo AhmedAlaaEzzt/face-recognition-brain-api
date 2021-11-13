@@ -1,21 +1,25 @@
 import express, { request, response } from "express";
 import Database from "./data/database.js";
+import cors from "cors";
+
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
 app.get("/", (request, response) => {
   response.send(Database.Users);
 });
 
 app.post("/signin", (request, response) => {
-  if (
-    request.body.email === Database.Users[0].email &&
-    request.body.password === Database.Users[0].password
-  ) {
-    response.json("success");
+  const {email,password } = request.body;
+
+  const user = Database.Users.find(user => user.email === email && user.password === password)
+  
+  if (user) {
+    response.json(user);
   } else {
-    response.status(400).json("error loggin in");
+    response.status(400).json("Wrong credentials!");
   }
 });
 
@@ -29,6 +33,7 @@ app.post("/register", (request, response) => {
     entries: 0,
     joined: new Date(),
   });
+
   response.json(Database.Users[Database.Users.length - 1]);
 });
 
@@ -47,23 +52,18 @@ app.get("/profile/:id", (request, response) => {
   }
 });
 
-app.put("/image", (request, response) => {
-  const { id } = request.body;
-  let found = false;
-  Database.Users.forEach((user) => {
-    if (user.id === id) {
-      found = true;
-      user.entries++;
-      return response.json(user.entries);
-    }
-  });
+app.put("/image/:id", (request, response) => {
+  const { id } = request.params;
+  const user = Database.Users.find(user => user.id === id);
 
-  if (!found) {
+  if(user){
+    user.entries++;
+    return response.json(user.entries);
+  }else{
     response.status(400).json("not found");
   }
+
 });
 
 
-app.listen(3000, () => {
-  console.log("app is running on port 3000");
-});
+app.listen(3000);
