@@ -2,6 +2,7 @@ import express, { request, response } from "express";
 import Database from "./data/database.js";
 import cors from "cors";
 import knex from "knex";
+import bcrypt from "bcrypt-nodejs";
 
 const db = knex({
   client: "pg",
@@ -14,8 +15,6 @@ const db = knex({
   },
 });
 
-// db.select("*").from('users')
-//   .then(data => console.log(data));
 
 const app = express();
 
@@ -28,32 +27,54 @@ app.get("/", (request, response) => {
 
 app.post("/signin", (request, response) => {
   const { email, password } = request.body;
+  db.select("email", "hash")
+    .from("login")
+    .where("email", "=", email)
+    .then((data) => {
+      const isValid = bcrypt.compareSync(password, data[0].hash);
+      if (isValid) {
+        return db.select("*")
+          .from("users")
+          .where("email", "=", email)
+          .then(user =>{
+            response.json(user);
+          })
+          .catch(err =>  response.status(400).json("unable to get user!"))
+        
+        }else{
+          response.status(400).json("Wrong credentials!")
+        }
+    })
+    .catch(err=> response.status(400).json("Wrong credentials!"))
 
-  const user = Database.Users.find(
-    (user) => user.email === email && user.password === password
-  );
-
-  if (user) {
-    response.json(user);
-  } else {
-    response.status(400).json("Wrong credentials!");
-  }
 });
 
 app.post("/register", (request, response) => {
   const { email, name, password } = request.body;
-
-  db("users")
-    .returning("*")
-    .insert({
-      email: email,
-      name: name,
-      joined: new Date(),
-    })
-    .then((user) => {
-      response.json(user[0]);
-    })
-    .catch((err) => response.status(400).json("unable to register"));
+  const hash = bcrypt.hashSync(password);
+  db.transaction((trx) => {
+    trx
+      .insert({
+        hash: hash,
+        email: email,
+      })
+      .into("login")
+      .returning("email")
+      .then((loginEmail) => {
+        return trx("users")
+          .returning("*")
+          .insert({
+            email: loginEmail[0],
+            name: name,
+            joined: new Date(),
+          })
+          .then((user) => {
+            response.json(user[0]);
+          });
+      })
+      .then(trx.commit)
+      .catch(trx.rollback);
+  }).catch((err) => response.status(400).json("unable to register"));
 });
 
 app.get("/profile/:id", (request, response) => {
@@ -70,33 +91,16 @@ app.get("/profile/:id", (request, response) => {
 app.put("/image/:id", (request, response) => {
   const { id } = request.params;
 
-  /**
-   * 
-  knex('books')
-  .where('published_date', '<', 2000)
-  .update({
-    status: 'archived',
-    thisKeyIsSkipped: undefined
-  })
-   */
   db("users")
     .where("id", "=", id)
     .increment("entries", 1)
     .returning("entries")
     .then((entries) => {
       console.log(entries);
-      response.json(entries[0])
+      response.json(entries[0]);
     })
-    .catch(err => response.status(400).json('unable to get entries'))
+    .catch((err) => response.status(400).json("unable to get entries"));
 
-  // const user = Database.Users.find((user) => user.id === id);
-
-  // if (user) {
-  //   user.entries++;
-  //   return response.json(user.entries);
-  // } else {
-  //   response.status(400).json("not found");
-  // }
 });
 
 app.listen(3000);
