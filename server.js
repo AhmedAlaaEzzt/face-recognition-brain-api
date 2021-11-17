@@ -27,6 +27,9 @@ app.get("/", (request, response) => {
 
 app.post("/signin", (request, response) => {
   const { email, password } = request.body;
+  if(!email || !password){
+    return response.status(400).json('incorrect user conditionals!')
+  }
   db.select("email", "hash")
     .from("login")
     .where("email", "=", email)
@@ -51,6 +54,9 @@ app.post("/signin", (request, response) => {
 
 app.post("/register", (request, response) => {
   const { email, name, password } = request.body;
+  if(!email || !name || !password){
+    return response.status(400).json('incorrect form submission!')
+  }
   const hash = bcrypt.hashSync(password);
   db.transaction((trx) => {
     trx
