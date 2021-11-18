@@ -7,11 +7,8 @@ import bcrypt from "bcrypt-nodejs";
 const db = knex({
   client: "pg",
   connection: {
-    host: "postgresql-perpendicular-68352",
-    port: 5432,
-    user: "postgres",
-    password: "123",
-    database: "smart-brain",
+    host: process.env.DATABASE_URL,
+    ssl:true
   },
 });
 
